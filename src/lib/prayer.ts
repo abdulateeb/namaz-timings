@@ -122,6 +122,12 @@ export function distanceToKaabaKm(lat: number, lon: number): number {
 
 /* ---------- formatting (manual, so it does not depend on Intl support) ---------- */
 
+/** 24-hour "HH:MM", e.g. "05:11", "18:56". */
+export function formatTime24(d: Date): string {
+  const p2 = (n: number) => String(n).padStart(2, '0');
+  return `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+}
+
 export function formatTime(d: Date): { hm: string; ampm: string } {
   const h = d.getHours();
   const m = d.getMinutes();

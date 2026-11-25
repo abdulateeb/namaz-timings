@@ -8,9 +8,13 @@ import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 
 import { PinIcon } from '../components/Icons';
 import { LiveClock } from '../components/LiveClock';
-import { formatCountdown, formatGregorianLong, formatHijriLong, formatTime, type DayPlan, type PrayerKey, type PrayerSlot } from '../lib/prayer';
+import { formatCountdown, formatGregorianLong, formatHijriLong, formatTime24, type DayPlan, type PrayerKey, type PrayerSlot } from '../lib/prayer';
 import type { Place } from '../lib/useLocation';
 import { FONT, type Theme } from '../theme';
+
+/** Start times in fresh green, end times in orange-red; bright enough for every sky. */
+const START = '#7CFFB0';
+const END = '#FF9A6B';
 
 const SKY: Record<PrayerKey, number> = {
   tahajjud: require('../../assets/sky-tahajjud.jpg'),
@@ -22,11 +26,10 @@ const SKY: Record<PrayerKey, number> = {
 };
 
 function TimeText({ d, style }: { d: Date; style?: object }) {
-  const { hm, ampm } = formatTime(d);
   return (
     <Text style={[styles.cardTime, style]}>
-      {hm}
-      <Text style={styles.cardAmpm}> {ampm}</Text>
+      {formatTime24(d)}
+      <Text style={styles.cardAmpm}> {d.getHours() < 12 ? 'AM' : 'PM'}</Text>
     </Text>
   );
 }
@@ -35,7 +38,7 @@ function PrayerCard({ slot, now, isNow }: { slot: PrayerSlot; now: Date; isNow: 
   const past = !isNow && now.getTime() >= slot.end.getTime();
   const progress = isNow ? (now.getTime() - slot.start.getTime()) / (slot.end.getTime() - slot.start.getTime()) : 0;
   return (
-    <View style={[styles.cardShadow, past && { opacity: 0.72 }]}>
+    <View style={styles.cardShadow}>
       <ImageBackground source={SKY[slot.key]} resizeMode="cover" style={styles.card} imageStyle={styles.cardImage}>
         {/* Darken the left and right edges so white text reads on any sky. */}
         <LinearGradient
@@ -45,6 +48,8 @@ function PrayerCard({ slot, now, isNow }: { slot: PrayerSlot; now: Date; isNow: 
           end={{ x: 1, y: 0.5 }}
           style={StyleSheet.absoluteFill}
         />
+        {/* Past prayers: dimmed with a solid tint, never see-through. */}
+        {past && <View pointerEvents="none" style={styles.pastTint} />}
         <View style={styles.cardRow}>
           <View style={styles.nameCol}>
             <Text style={styles.name}>{slot.name}</Text>
@@ -57,12 +62,12 @@ function PrayerCard({ slot, now, isNow }: { slot: PrayerSlot; now: Date; isNow: 
           </View>
           <View style={styles.timesCol}>
             <View style={styles.timeLine}>
-              <Text style={styles.timeLabel}>STARTS</Text>
-              <TimeText d={slot.start} />
+              <Text style={[styles.timeLabel, { color: START }]}>STARTS</Text>
+              <TimeText d={slot.start} style={{ color: START }} />
             </View>
             <View style={styles.timeLine}>
-              <Text style={styles.timeLabel}>ENDS</Text>
-              <TimeText d={slot.end} style={{ opacity: 0.85 }} />
+              <Text style={[styles.timeLabel, { color: END }]}>ENDS</Text>
+              <TimeText d={slot.end} style={{ color: END }} />
             </View>
           </View>
         </View>
@@ -173,11 +178,12 @@ const styles = StyleSheet.create({
     fontFamily: FONT.semibold,
     fontSize: 19,
     fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowRadius: 8,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowRadius: 6,
   },
-  cardAmpm: { fontFamily: FONT.medium, fontSize: 12 },
+  cardAmpm: { fontFamily: FONT.medium, fontSize: 11 },
   track: { position: 'absolute', left: 20, right: 20, bottom: 10, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' },
   fill: { height: 3, borderRadius: 2, backgroundColor: '#FFFFFF' },
+  pastTint: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.32)' },
   nowRing: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: 24, borderWidth: 2, borderColor: 'rgba(255,255,255,0.85)' },
 });

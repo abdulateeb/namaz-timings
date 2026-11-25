@@ -74,10 +74,10 @@ def stars(img, n, seed):
     return out
 
 
-def moon(img, x, y):
-    """Crescent with an earthshine disc and soft halo."""
+def moon(img, x, y, rf=0.07):
+    """Crescent with an earthshine disc and soft halo; rf = radius as a fraction of height."""
     yy, xx = np.mgrid[0:H, 0:W]
-    cx, cy, r = x * W, y * H, H * 0.07
+    cx, cy, r = x * W, y * H, H * rf
     d = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
     d2 = np.sqrt((xx - (cx + r * 0.45)) ** 2 + (yy - (cy - r * 0.2)) ** 2)
     halo = np.exp(-np.maximum(d - r, 0) / (H * 0.12)) * 0.22

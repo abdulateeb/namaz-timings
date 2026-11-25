@@ -1,8 +1,7 @@
 /**
  * Qibla compass styled on the user's reference: thick green ring, white face,
- * navy ticks and N E S W, a light-green street-map centre, a Kaaba on the rim
- * at the Qibla bearing with a red dashed line to it, and a fixed red arrow for
- * where the phone points.
+ * navy ticks with a red N, a light-green street-map centre, a Kaaba on the rim
+ * at the Qibla bearing, and a fixed red arrow for where the phone points.
  *
  * Bull's eye: concentric rings in the centre with a spirit-level bubble. The
  * reading is only accurate when the phone is flat, i.e. the bubble is centred.
@@ -11,9 +10,9 @@
  * bull's eye stay fixed to the phone.
  */
 import { memo, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle, ClipPath, Defs, Ellipse, G, Line, Path, Polygon, RadialGradient, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, Line, Path, RadialGradient, Stop, Text as SvgText } from 'react-native-svg';
 
 const GREEN = '#1BA556';
 const GREEN_ON = '#22C766';
@@ -32,28 +31,10 @@ interface Props {
   flat: boolean;
 }
 
-/** Kaaba drawn in a 100 x 100 box, top face pointing outward. */
-function Kaaba() {
-  const scallops = (a: [number, number], b: [number, number]) =>
-    [0.22, 0.5, 0.78].map((t) => {
-      const x = a[0] + (b[0] - a[0]) * t;
-      const y = a[1] + (b[1] - a[1]) * t;
-      return <Ellipse key={`${x}`} cx={x} cy={y} rx={4.2} ry={5.2} fill="#141414" stroke="#FFFFFF" strokeWidth={1.6} />;
-    });
-  return (
-    <G>
-      <Polygon points="50,3 93,23 93,75 50,97 7,75 7,23" fill="#141414" stroke="#FFFFFF" strokeWidth={5} strokeLinejoin="round" />
-      <Polygon points="50,5 91,24 50,43 9,24" fill="#3B3B3B" />
-      <Line x1={50} y1={43} x2={50} y2={95} stroke="#2C2C2C" strokeWidth={1.5} />
-      <Polygon points="9,33 50,52 50,62 9,43" fill="#F2C94C" />
-      <Polygon points="50,52 91,33 91,43 50,62" fill="#E2B53A" />
-      {scallops([12, 50], [46, 66])}
-      {scallops([54, 66], [88, 50])}
-    </G>
-  );
-}
+/** Rendered Kaaba (scripts/make_kaaba.py): kiswa, gold band, door, roof. */
+const KAABA = require('../../assets/kaaba.png');
 
-const Dial = memo(function Dial({ s, qibla }: { s: number; qibla: number }) {
+const Dial = memo(function Dial({ s }: { s: number }) {
   const c = s / 2;
   const mapR = s * 0.27;
   const tickR = c - s * 0.075;
@@ -71,8 +52,6 @@ const Dial = memo(function Dial({ s, qibla }: { s: number; qibla: number }) {
     return out;
   }, [s]);
 
-  const kSize = s * 0.24;
-  const kR = c - s * 0.1; // Kaaba centre distance from the dial centre
 
   return (
     <Svg width={s} height={s}>
@@ -107,8 +86,8 @@ const Dial = memo(function Dial({ s, qibla }: { s: number; qibla: number }) {
             y1={c + tickR * Math.sin(r)}
             x2={c + (tickR - len) * Math.cos(r)}
             y2={c + (tickR - len) * Math.sin(r)}
-            stroke={NAVY}
-            strokeWidth={major ? 3.2 : 1.8}
+            stroke={a === 0 ? RED : NAVY}
+            strokeWidth={a === 0 ? 4.2 : major ? 3.2 : 1.8}
             strokeLinecap="round"
           />
         );
@@ -122,20 +101,23 @@ const Dial = memo(function Dial({ s, qibla }: { s: number; qibla: number }) {
         const x = c + d * Math.cos(r);
         const y = c + d * Math.sin(r);
         return (
-          <SvgText key={l} x={x} y={y + s * 0.032} fill={NAVY} fontSize={s * 0.095} fontWeight="800" fontFamily="Inter_700Bold" textAnchor="middle" transform={`rotate(${a} ${x} ${y})`}>
+          <SvgText key={l} x={x} y={y + s * 0.032} fill={l === 'N' ? RED : NAVY} fontSize={s * 0.095} fontWeight="800" fontFamily="Inter_700Bold" textAnchor="middle" transform={`rotate(${a} ${x} ${y})`}>
             {l}
           </SvgText>
         );
       })}
-
-      {/* Red dashed line to the Kaaba, then the Kaaba on the rim. */}
-      <G transform={`rotate(${qibla} ${c} ${c})`}>
-        <Line x1={c} y1={c} x2={c} y2={c - kR + kSize * 0.42} stroke={RED} strokeWidth={Math.max(2.5, s * 0.008)} strokeDasharray={`${s * 0.018} ${s * 0.014}`} />
-        <G transform={`translate(${c - kSize / 2} ${c - kR - kSize / 2}) scale(${kSize / 100})`}>
-          <Kaaba />
-        </G>
-      </G>
     </Svg>
+  );
+});
+
+/** Kaaba on the rim at the Qibla bearing; turns with the dial. */
+const KaabaMarker = memo(function KaabaMarker({ s, qibla }: { s: number; qibla: number }) {
+  const k = s * 0.22;
+  const kR = s / 2 - s * 0.1; // distance of the Kaaba centre from the dial centre
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ rotate: `${qibla}deg` }] }]}>
+      <Image source={KAABA} style={{ position: 'absolute', width: k, height: k, left: s / 2 - k / 2, top: s / 2 - kR - k / 2 }} />
+    </View>
   );
 });
 
@@ -175,7 +157,8 @@ export function QiblaCompass({ size: s, qibla, rotation, aligned, tiltX, tiltY, 
       </Svg>
 
       <Animated.View style={[StyleSheet.absoluteFill, spin]}>
-        <Dial s={s} qibla={qibla} />
+        <Dial s={s} />
+        <KaabaMarker s={s} qibla={qibla} />
       </Animated.View>
 
       <Fixed s={s} aligned={aligned} flat={flat} />

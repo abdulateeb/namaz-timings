@@ -5,10 +5,10 @@ import { Platform, Pressable, StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import type { Theme } from '../theme';
-import { Glass } from './Glass';
+import { LiquidGlass } from './LiquidGlass';
 import { MoonIcon, SunIcon } from './Icons';
 
-const SIZE = 46;
+const SIZE = 42;
 
 export function ThemeButton({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
   const dark = theme.mode === 'dark';
@@ -32,14 +32,14 @@ export function ThemeButton({ theme, onToggle }: { theme: Theme; onToggle: () =>
       hitSlop={8}
       style={styles.shadow}
     >
-      <Glass variant={theme.glass} radius={SIZE / 2} intensity={60} style={styles.btn}>
+      <LiquidGlass radius={SIZE / 2} dark={dark} style={styles.btn}>
         <Animated.View style={[styles.icon, sun]}>
           <SunIcon size={22} color={theme.text} />
         </Animated.View>
         <Animated.View style={[styles.icon, moon]}>
           <MoonIcon size={21} color={theme.text} />
         </Animated.View>
-      </Glass>
+      </LiquidGlass>
     </Pressable>
   );
 }

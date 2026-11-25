@@ -112,10 +112,6 @@ export function TimesScreen({ plan, now, place, theme }: { plan: DayPlan; now: D
           <PrayerCard key={s.key} slot={s} now={now} isNow={plan.current === s} />
         ))}
       </View>
-
-      <Text style={[styles.foot, { color: theme.faint }]}>
-        {plan.methodName} method · Asr by shadow length · Isha till half night · Tahajjud in the last third of the night
-      </Text>
     </View>
   );
 }
@@ -184,6 +180,4 @@ const styles = StyleSheet.create({
   track: { position: 'absolute', left: 20, right: 20, bottom: 10, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' },
   fill: { height: 3, borderRadius: 2, backgroundColor: '#FFFFFF' },
   nowRing: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: 24, borderWidth: 2, borderColor: 'rgba(255,255,255,0.85)' },
-
-  foot: { fontFamily: FONT.regular, fontSize: 12, textAlign: 'center', marginTop: 18, lineHeight: 17, paddingHorizontal: 10 },
 });

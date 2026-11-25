@@ -31,7 +31,7 @@ def sky(spec, seed, half=2):
         g_col, g_str, gx, gy = spec["glow"]
         img = cs.glow_at(img, g_col, gx, gy, g_str, 2.0)
     if spec.get("moon"):
-        img = cs.moon(img, *spec["moon"], rf=0.028)
+        img = cs.moon(img, *spec["moon"], rf=0.018)
     if spec.get("sun"):
         s_col, sx, sy, sr, sg = spec["sun"]
         img = cs.sun_disc(img, s_col, sx, sy, sr, sg)
@@ -114,7 +114,7 @@ def grain(img, seed):
     return np.clip(img + (g * (0.04 + 0.03 * (1 - lum)))[..., None], 0, 1)
 
 
-NIGHT = dict(stops=["#02030A", "#0A1030", "#1C2350"], stars=900, moon=(0.74, 0.13), glow=("#3A4A8A", 0.3, 0.5, 1.0),
+NIGHT = dict(stops=["#02030A", "#0A1030", "#1C2350"], stars=900, moon=(0.5, 0.062), glow=("#3A4A8A", 0.3, 0.5, 1.0),
              lit="#7C88B4", shade="#141A38", clouds=0.32, cloud_alpha=0.5)
 MORNING = dict(stops=["#1C67BE", "#5BA5E2", "#CFE6F2"], sun=("#FFF6DA", 0.84, 0.07, 0.018, 0.4), glow=("#FFE9C2", 0.12, 0.85, 0.08),
                lit="#FFFFFF", shade="#B5C8DA", clouds=0.55, cloud_alpha=1.0)

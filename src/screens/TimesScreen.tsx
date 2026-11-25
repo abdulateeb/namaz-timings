@@ -7,7 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 
 import { PinIcon } from '../components/Icons';
-import { formatCountdown, formatDate, formatHijri, formatTime, type DayPlan, type PrayerKey, type PrayerSlot } from '../lib/prayer';
+import { LiveClock } from '../components/LiveClock';
+import { formatCountdown, formatGregorianLong, formatHijriLong, formatTime, type DayPlan, type PrayerKey, type PrayerSlot } from '../lib/prayer';
 import type { Place } from '../lib/useLocation';
 import { FONT, type Theme } from '../theme';
 
@@ -77,12 +78,6 @@ function PrayerCard({ slot, now, isNow }: { slot: PrayerSlot; now: Date; isNow: 
 }
 
 export function TimesScreen({ plan, now, place, theme }: { plan: DayPlan; now: Date; place: Place; theme: Theme }) {
-  const h = now.getHours();
-  const hh = h % 12 === 0 ? 12 : h % 12;
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const ss = String(now.getSeconds()).padStart(2, '0');
-  const hijri = formatHijri(now);
-
   return (
     <View style={styles.wrap}>
       <View style={styles.address}>
@@ -97,16 +92,19 @@ export function TimesScreen({ plan, now, place, theme }: { plan: DayPlan; now: D
         </Text>
       </View>
 
-      <View style={styles.clockBlock}>
-        <Text style={[styles.clock, { color: theme.text }]}>
-          {hh}:{mm}
-          <Text style={[styles.clockSec, { color: theme.sub }]}>:{ss}</Text>
-          <Text style={[styles.clockAmpm, { color: theme.sub }]}> {h < 12 ? 'am' : 'pm'}</Text>
-        </Text>
-        <Text style={[styles.date, { color: theme.sub }]}>
-          {formatDate(now)}
-          {hijri ? `  ·  ${hijri}` : ''}
-        </Text>
+      <View style={styles.infoBlock}>
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: theme.sub }]}>Current Time</Text>
+          <LiveClock style={[styles.infoClock, { color: theme.text }]} msStyle={{ color: theme.sub }} />
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: theme.sub }]}>Gregorian Date</Text>
+          <Text style={[styles.infoValue, { color: theme.text }]}>{formatGregorianLong(now)}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: theme.sub }]}>Hijri Date</Text>
+          <Text style={[styles.infoValue, { color: theme.text }]}>{formatHijriLong(now)}</Text>
+        </View>
       </View>
 
       <View style={styles.list}>
@@ -129,11 +127,11 @@ const styles = StyleSheet.create({
   addr1: { fontFamily: FONT.bold, fontSize: 22, letterSpacing: -0.3, flexShrink: 1 },
   addr2: { fontFamily: FONT.medium, fontSize: 14, marginTop: 4, lineHeight: 19 },
 
-  clockBlock: { marginTop: 22, marginBottom: 18 },
-  clock: { fontFamily: FONT.light, fontSize: 64, letterSpacing: -2, fontVariant: ['tabular-nums'] },
-  clockSec: { fontSize: 30, letterSpacing: -0.5 },
-  clockAmpm: { fontFamily: FONT.medium, fontSize: 20, letterSpacing: 0 },
-  date: { fontFamily: FONT.medium, fontSize: 14, marginTop: -2 },
+  infoBlock: { marginTop: 20, marginBottom: 18, gap: 10 },
+  infoRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
+  infoLabel: { fontFamily: FONT.medium, fontSize: 14 },
+  infoValue: { fontFamily: FONT.semibold, fontSize: 17, textAlign: 'right', flexShrink: 1 },
+  infoClock: { fontFamily: FONT.semibold, fontSize: 22, fontVariant: ['tabular-nums'], letterSpacing: -0.3 },
 
   list: { gap: 12 },
   cardShadow: {

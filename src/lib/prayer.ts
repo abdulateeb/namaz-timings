@@ -144,6 +144,60 @@ export function formatDate(d: Date): string {
   return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+const HIJRI_MONTHS = [
+  'Muharram',
+  'Safar',
+  'Rabi al-Awwal',
+  'Rabi al-Thani',
+  'Jumada al-Ula',
+  'Jumada al-Thani',
+  'Rajab',
+  'Shaban',
+  'Ramadan',
+  'Shawwal',
+  'Dhu al-Qadah',
+  'Dhu al-Hijjah',
+];
+
+/** Tabular (arithmetic) Islamic calendar; fallback when Intl lacks Umm al-Qura. */
+function tabularHijri(d: Date): { day: number; month: number; year: number } {
+  const jd = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000) + 2440588;
+  const l0 = jd - 1948440 + 10632;
+  const n = Math.floor((l0 - 1) / 10631);
+  const l1 = l0 - 10631 * n + 354;
+  const j =
+    Math.floor((10985 - l1) / 5316) * Math.floor((50 * l1) / 17719) + Math.floor(l1 / 5670) * Math.floor((43 * l1) / 15238);
+  const l2 = l1 - Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) - Math.floor(j / 16) * Math.floor((15238 * j) / 43) + 29;
+  const month = Math.floor((24 * l2) / 709);
+  const day = l2 - Math.floor((709 * month) / 24);
+  const year = 30 * n + j - 30;
+  return { day, month, year };
+}
+
+/** "15 Jumada al-Thani 1448": day, full month name, year. */
+export function formatHijriLong(d: Date): string {
+  let parts: { day: number; month: number; year: number } | null = null;
+  try {
+    const f = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'numeric', year: 'numeric' });
+    if (f.resolvedOptions().calendar.startsWith('islamic')) {
+      const p = Object.fromEntries(f.formatToParts(d).map((x) => [x.type, x.value]));
+      const day = parseInt(p.day, 10);
+      const month = parseInt(p.month, 10);
+      const year = parseInt(p.year, 10);
+      if (day && month && year) parts = { day, month, year };
+    }
+  } catch {
+    parts = null;
+  }
+  const h = parts ?? tabularHijri(d);
+  return `${h.day} ${HIJRI_MONTHS[h.month - 1]} ${h.year}`;
+}
+
+/** "25 November 2026": day, full month name, year. */
+export function formatGregorianLong(d: Date): string {
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 /** Hijri date via Intl when the engine supports the Islamic calendar; otherwise null. */
 export function formatHijri(d: Date): string | null {
   try {

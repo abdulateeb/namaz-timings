@@ -1,7 +1,8 @@
 """Generate the Namaz app icon set: "Night Sky" (chosen 25 Nov 2026, replacing Morning).
 
 A starry night: deep indigo sky, faint moonlit clouds, dark hills and a mosque on
-the horizon, a glowing crescent above, film grain.
+the horizon, a glowing white crescent, fine stars and lens-sparkle star bursts
+(variant 07 of the moon-and-stars set, chosen 25 Nov 2026), film grain.
 
 Writes into ./assets:
   icon.png                     full icon (store, iOS, legacy Android)
@@ -14,6 +15,7 @@ Writes into ./assets:
 Everything important sits inside the centre 66 % so launcher masks never cut it.
 Run from the project root:  python -I scripts/make_icons.py
 """
+import math
 import os
 import sys
 
@@ -34,14 +36,53 @@ def scene():
     spec["stops"] = ["#050817", "#121A48", "#3A3576"]
     spec["land"] = "#04050C"
     img = cs.gradient(spec["stops"])
-    img = cs.stars(img, 260, SEED)
     img = cs.glow_at(img, "#8FA2FF", 0.41, 0.34, 0.35, 3.2)  # moonlight halo
     img = cs.glow_at(img, "#6A5AA8", 0.5, 0.95, 0.4, 2.4)  # last light on the horizon
     img = cs.clouds(img, spec, SEED)
+    img = star_bursts(img)
     img = cs.skyline(img, spec["land"], SEED, mx_f=0.5, base_f=0.77, dw_f=0.105, hill_f=0.8)
     # Mosque alone (hills pushed off-canvas) for the monochrome icon.
     _, mask = cs.skyline(img, spec["land"], SEED, mx_f=0.5, base_f=0.77, dw_f=0.105, hill_f=2.0, return_mask=True)
     return img, mask
+
+
+def _sparkle(cx, cy, r, inner=0.1, rot=-90):
+    m = Image.new("L", (S, S), 0)
+    pts = []
+    for i in range(8):
+        a = math.radians(rot + 45 * i)
+        rr = r if i % 2 == 0 else r * inner
+        pts.append((cx + rr * math.cos(a), cy + rr * math.sin(a)))
+    ImageDraw.Draw(m).polygon(pts, fill=255)
+    return m
+
+
+def _paint(img, mask, color, alpha=1.0):
+    m = (np.asarray(mask, dtype=float) / 255 * alpha)[..., None]
+    return img * (1 - m) + cs.col(color) * m
+
+
+def star_bursts(img):
+    """Variant 07 (chosen 25 Nov 2026): fine dotted stars plus four large
+    lens-sparkle star bursts. Drawn before the skyline so the mosque covers them."""
+    rng = np.random.default_rng(7)
+    mx, my, keep = S * 0.41, S * 0.34, S * 0.2
+    dots = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(dots)
+    for _ in range(180):
+        x, y = rng.random() * S, rng.random() ** 1.25 * S * 0.72
+        if math.hypot(x - mx, y - my) < keep:
+            continue
+        r = 1.2 + rng.random() ** 3 * 2.4
+        d.ellipse([x - r, y - r, x + r, y + r], fill=int(150 + rng.random() * 105))
+    img = _paint(img, dots.filter(ImageFilter.GaussianBlur(0.5)), "#FFFFFF", 0.8)
+    burst = Image.new("L", (S, S), 0)
+    # Inside the launcher's circle crop (radius 0.33 around the centre) so none is cut off.
+    for (x, y, r) in [(0.62, 0.27, 38), (0.3, 0.32, 22), (0.74, 0.46, 22), (0.58, 0.4, 13)]:
+        burst = ImageChops.lighter(burst, _sparkle(S * x, S * y, r))
+        burst = ImageChops.lighter(burst, _sparkle(S * x, S * y, r * 0.5, rot=-45))
+    img = _paint(img, burst.filter(ImageFilter.GaussianBlur(9)), "#BFD0FF", 0.8)
+    return _paint(img, burst, "#FFFFFF")
 
 
 def crescent_mask(cx, cy, r):
@@ -73,12 +114,15 @@ def sun_mask(cx, cy, r):
 
 
 def crescent_layer(cm):
-    """Glowing body for the sky light (used for the sun)."""
+    """Glowing white crescent with a cool blue-white halo (variant 07)."""
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    glow = Image.new("RGBA", (S, S), (255, 232, 190, 0))
-    glow.putalpha(cm.filter(ImageFilter.GaussianBlur(40)).point(lambda v: int(v * 0.9)))
+    glow = Image.new("RGBA", (S, S), (217, 228, 255, 0))
+    glow.putalpha(cm.filter(ImageFilter.GaussianBlur(44)).point(lambda v: int(v * 0.9)))
     layer = Image.alpha_composite(layer, glow)
-    body = Image.new("RGBA", (S, S), (255, 244, 218, 0))
+    inner = Image.new("RGBA", (S, S), (217, 228, 255, 0))
+    inner.putalpha(cm.filter(ImageFilter.GaussianBlur(14)).point(lambda v: int(v * 0.75)))
+    layer = Image.alpha_composite(layer, inner)
+    body = Image.new("RGBA", (S, S), (255, 255, 255, 0))
     body.putalpha(cm)
     return Image.alpha_composite(layer, body)
 

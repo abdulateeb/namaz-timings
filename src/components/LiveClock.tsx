@@ -5,17 +5,19 @@
 import { useEffect, useState } from 'react';
 import { Text, type StyleProp, type TextStyle } from 'react-native';
 
+import { demoNow } from '../lib/demo';
+
 function format(d: Date) {
   const p2 = (n: number) => String(n).padStart(2, '0');
   return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())} ${d.getHours() < 12 ? 'AM' : 'PM'}`;
 }
 
 export function LiveClock({ style }: { style?: StyleProp<TextStyle> }) {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => demoNow());
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const tick = () => {
-      setNow(new Date());
+      setNow(demoNow());
       timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 5);
     };
     timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 5);

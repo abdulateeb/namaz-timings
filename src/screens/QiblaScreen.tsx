@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { PanResponder, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { QiblaCompass } from '../components/QiblaCompass';
+import { DEMO } from '../lib/demo';
 import { qiblaBearing } from '../lib/prayer';
 import { useHeading } from '../lib/useHeading';
 import { useTilt } from '../lib/useTilt';
@@ -15,7 +16,7 @@ export function QiblaScreen({ lat, lon, active }: { lat: number; lon: number; ac
   const { width, height } = useWindowDimensions();
   const qibla = qiblaBearing(lat, lon);
   // Browser preview starts turned away so the Kaaba visibly has to be lined up.
-  const heading = useHeading(active, Platform.OS === 'web' ? qibla - 48 : 0);
+  const heading = useHeading(active, Platform.OS === 'web' ? qibla + (DEMO?.heading ?? -48) : 0);
   const tilt = useTilt(active);
 
   const diff = ((qibla - heading.degrees + 540) % 360) - 180; // + means turn right

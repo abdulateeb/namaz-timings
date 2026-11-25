@@ -17,12 +17,12 @@ export type LocationState =
   | { status: 'error'; message: string }
   | { status: 'ready'; place: Place };
 
-/** Browser preview has no phone GPS; it uses a fixed point in Hyderabad. */
+/** Browser preview has no phone GPS; it uses a public landmark (Charminar, Hyderabad). */
 const PREVIEW_PLACE: Place = {
-  lat: 17.454,
-  lon: 78.4227,
-  line1: 'Moti Nagar',
-  line2: 'Hyderabad, Telangana 500018, India',
+  lat: 17.3616,
+  lon: 78.4747,
+  line1: 'Charminar',
+  line2: 'Hyderabad, Telangana 500002, India',
 };
 
 function coordText(lat: number, lon: number) {

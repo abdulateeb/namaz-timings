@@ -6,11 +6,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } 
 import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaInsetsContext, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BlurTargetContext, Glass } from './src/components/Glass';
 import { GlassTabBar, type Tab } from './src/components/GlassTabBar';
 import { ThemeButton } from './src/components/ThemeButton';
+import { DEMO } from './src/lib/demo';
 import { planDay } from './src/lib/prayer';
 import { useDeviceLocation } from './src/lib/useLocation';
 import { useNow } from './src/lib/useNow';
@@ -46,9 +47,9 @@ function Main() {
   // A manual flip holds only until the next 6 o'clock change.
   const period = periodOf(now);
   const [manual, setManual] = useState<{ mode: Mode; period: string } | null>(null);
-  const mode: Mode = manual && manual.period === period ? manual.mode : period.endsWith('n') ? 'dark' : 'light';
+  const mode: Mode = manual && manual.period === period ? manual.mode : DEMO?.theme ?? (period.endsWith('n') ? 'dark' : 'light');
   const { state, retry, openSettings } = useDeviceLocation();
-  const [tab, setTab] = useState<Tab>('times');
+  const [tab, setTab] = useState<Tab>(DEMO?.tab ?? 'times');
 
   const place = state.status === 'ready' ? state.place : null;
   const minuteKey = Math.floor(now.getTime() / 60000);
@@ -246,7 +247,14 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <Main />
+      {DEMO ? (
+        // Demo screenshots: phone-like status bar and gesture bar spacing on web.
+        <SafeAreaInsetsContext.Provider value={{ top: 44, bottom: 20, left: 0, right: 0 }}>
+          <Main />
+        </SafeAreaInsetsContext.Provider>
+      ) : (
+        <Main />
+      )}
     </SafeAreaProvider>
   );
 }

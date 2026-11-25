@@ -41,3 +41,6 @@ yarn-error.*
 /android
 
 __pycache__/
+
+# Raw screenshots used to build the README images (17 MB, regenerated on demand)
+docs/shots/

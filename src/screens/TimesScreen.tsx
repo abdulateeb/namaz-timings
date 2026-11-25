@@ -1,118 +1,191 @@
+/**
+ * Prayer times: full address, the current time, then one card per prayer.
+ * Each card shows a realistic sky for that time of day (assets/sky-*.jpg),
+ * the prayer name large on the left and start and end times on the right.
+ */
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 
-import { Glass } from '../components/Glass';
-import { PrayerGlyph } from '../components/Icons';
-import { formatCountdown, formatTime, type DayPlan, type PrayerSlot } from '../lib/prayer';
-import { FONT, PRAYER_TILES, TEXT } from '../theme';
+import { PinIcon } from '../components/Icons';
+import { formatCountdown, formatDate, formatHijri, formatTime, type DayPlan, type PrayerKey, type PrayerSlot } from '../lib/prayer';
+import type { Place } from '../lib/useLocation';
+import { FONT, type Theme } from '../theme';
 
-function Time({ d, dim }: { d: Date; dim?: boolean }) {
+const SKY: Record<PrayerKey, number> = {
+  tahajjud: require('../../assets/sky-tahajjud.jpg'),
+  fajr: require('../../assets/sky-fajr.jpg'),
+  dhuhr: require('../../assets/sky-dhuhr.jpg'),
+  asr: require('../../assets/sky-asr.jpg'),
+  maghrib: require('../../assets/sky-maghrib.jpg'),
+  isha: require('../../assets/sky-isha.jpg'),
+};
+
+function TimeText({ d, style }: { d: Date; style?: object }) {
   const { hm, ampm } = formatTime(d);
   return (
-    <Text style={[styles.time, dim && { color: TEXT.secondary }]}>
+    <Text style={[styles.cardTime, style]}>
       {hm}
-      <Text style={styles.ampm}> {ampm}</Text>
+      <Text style={styles.cardAmpm}> {ampm}</Text>
     </Text>
   );
 }
 
-function Row({ slot, state, last }: { slot: PrayerSlot; state: 'past' | 'now' | 'later'; last: boolean }) {
+function PrayerCard({ slot, now, isNow }: { slot: PrayerSlot; now: Date; isNow: boolean }) {
+  const past = !isNow && now.getTime() >= slot.end.getTime();
+  const progress = isNow ? (now.getTime() - slot.start.getTime()) / (slot.end.getTime() - slot.start.getTime()) : 0;
   return (
-    <View style={[styles.row, state === 'now' && styles.rowNow, state === 'past' && { opacity: 0.45 }]}>
-      <LinearGradient colors={PRAYER_TILES[slot.key]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.tile}>
-        <PrayerGlyph prayer={slot.key} size={19} />
-      </LinearGradient>
-      <View style={styles.nameCol}>
-        <Text style={styles.name}>{slot.name}</Text>
-        {state === 'now' && <Text style={styles.nowTag}>Now</Text>}
-      </View>
-      <View style={styles.timeCol}>
-        <Time d={slot.start} />
-      </View>
-      <View style={styles.timeCol}>
-        <Time d={slot.end} dim />
-      </View>
-      {!last && state !== 'now' && <View style={styles.sep} />}
-    </View>
-  );
-}
-
-export function TimesScreen({ plan, now }: { plan: DayPlan; now: Date }) {
-  const t = now.getTime();
-  const { current, next } = plan;
-
-  const heroLabel = current ? `${current.name} is on` : 'Next prayer';
-  const target = current ? current.end : next.start;
-  const caption = current
-    ? `left · next ${next.name} at ${formatTime(next.start).hm} ${formatTime(next.start).ampm}`
-    : `until ${next.name} at ${formatTime(next.start).hm} ${formatTime(next.start).ampm}`;
-  const progress = current ? (t - current.start.getTime()) / (current.end.getTime() - current.start.getTime()) : null;
-
-  return (
-    <View style={styles.wrap}>
-      <View style={styles.hero}>
-        <Text style={styles.heroLabel}>{heroLabel}</Text>
-        <Text style={styles.countdown}>{formatCountdown(target.getTime() - t)}</Text>
-        <Text style={styles.caption}>{caption}</Text>
-        {progress !== null && (
+    <View style={[styles.cardShadow, past && { opacity: 0.72 }]}>
+      <ImageBackground source={SKY[slot.key]} resizeMode="cover" style={styles.card} imageStyle={styles.cardImage}>
+        {/* Darken the left and right edges so white text reads on any sky. */}
+        <LinearGradient
+          colors={['rgba(0,0,0,0.30)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.26)']}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.cardRow}>
+          <View style={styles.nameCol}>
+            <Text style={styles.name}>{slot.name}</Text>
+            {isNow && (
+              <View style={styles.nowChip}>
+                <View style={styles.nowDot} />
+                <Text style={styles.nowText}>Now · {formatCountdown(slot.end.getTime() - now.getTime())} left</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.timesCol}>
+            <View style={styles.timeLine}>
+              <Text style={styles.timeLabel}>STARTS</Text>
+              <TimeText d={slot.start} />
+            </View>
+            <View style={styles.timeLine}>
+              <Text style={styles.timeLabel}>ENDS</Text>
+              <TimeText d={slot.end} style={{ opacity: 0.85 }} />
+            </View>
+          </View>
+        </View>
+        {isNow && (
           <View style={styles.track}>
             <View style={[styles.fill, { width: `${Math.min(100, Math.max(2, progress * 100))}%` }]} />
           </View>
         )}
+        {isNow && <View pointerEvents="none" style={styles.nowRing} />}
+      </ImageBackground>
+    </View>
+  );
+}
+
+export function TimesScreen({ plan, now, place, theme }: { plan: DayPlan; now: Date; place: Place; theme: Theme }) {
+  const h = now.getHours();
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  const hijri = formatHijri(now);
+
+  return (
+    <View style={styles.wrap}>
+      <View style={styles.address}>
+        <View style={styles.addrTop}>
+          <PinIcon size={15} color={theme.text} />
+          <Text style={[styles.addr1, { color: theme.text }]} numberOfLines={1}>
+            {place.line1}
+          </Text>
+        </View>
+        <Text style={[styles.addr2, { color: theme.sub }]} numberOfLines={2}>
+          {place.line2}
+        </Text>
       </View>
 
-      <Glass style={styles.card}>
-        <View style={styles.headRow}>
-          <Text style={[styles.head, { flex: 1 }]}>Today</Text>
-          <Text style={[styles.head, styles.timeCol]}>Starts</Text>
-          <Text style={[styles.head, styles.timeCol]}>Ends</Text>
-        </View>
-        {plan.slots.map((s, i) => {
-          const state = current === s ? 'now' : t >= s.end.getTime() ? 'past' : 'later';
-          return <Row key={s.key} slot={s} state={state} last={i === plan.slots.length - 1} />;
-        })}
-      </Glass>
+      <View style={styles.clockBlock}>
+        <Text style={[styles.clock, { color: theme.text }]}>
+          {hh}:{mm}
+          <Text style={[styles.clockSec, { color: theme.sub }]}>:{ss}</Text>
+          <Text style={[styles.clockAmpm, { color: theme.sub }]}> {h < 12 ? 'am' : 'pm'}</Text>
+        </Text>
+        <Text style={[styles.date, { color: theme.sub }]}>
+          {formatDate(now)}
+          {hijri ? `  ·  ${hijri}` : ''}
+        </Text>
+      </View>
 
-      <Text style={styles.foot}>
-        {plan.methodName} method · Asr by shadow length · Isha till half night · Sunrise {formatTime(plan.sunrise).hm}{' '}
-        {formatTime(plan.sunrise).ampm}
+      <View style={styles.list}>
+        {plan.slots.map((s) => (
+          <PrayerCard key={s.key} slot={s} now={now} isNow={plan.current === s} />
+        ))}
+      </View>
+
+      <Text style={[styles.foot, { color: theme.faint }]}>
+        {plan.methodName} method · Asr by shadow length · Isha till half night · Tahajjud in the last third of the night
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, paddingHorizontal: 16 },
-  hero: { alignItems: 'center', paddingTop: 26, paddingBottom: 30 },
-  heroLabel: { color: TEXT.secondary, fontFamily: FONT.semibold, fontSize: 15, letterSpacing: 0.2 },
-  countdown: {
-    color: TEXT.primary,
-    fontFamily: FONT.light,
-    fontSize: 76,
-    letterSpacing: -2,
-    marginTop: 2,
-    fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(0,0,0,0.18)',
-    textShadowRadius: 12,
+  wrap: { paddingHorizontal: 16 },
+  address: { paddingRight: 64 },
+  addrTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  addr1: { fontFamily: FONT.bold, fontSize: 22, letterSpacing: -0.3, flexShrink: 1 },
+  addr2: { fontFamily: FONT.medium, fontSize: 14, marginTop: 4, lineHeight: 19 },
+
+  clockBlock: { marginTop: 22, marginBottom: 18 },
+  clock: { fontFamily: FONT.light, fontSize: 64, letterSpacing: -2, fontVariant: ['tabular-nums'] },
+  clockSec: { fontSize: 30, letterSpacing: -0.5 },
+  clockAmpm: { fontFamily: FONT.medium, fontSize: 20, letterSpacing: 0 },
+  date: { fontFamily: FONT.medium, fontSize: 14, marginTop: -2 },
+
+  list: { gap: 12 },
+  cardShadow: {
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-  caption: { color: TEXT.secondary, fontFamily: FONT.medium, fontSize: 15 },
-  track: { marginTop: 18, width: 180, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden' },
-  fill: { height: 5, borderRadius: 3, backgroundColor: '#FFFFFF' },
-
-  card: { paddingHorizontal: 8, paddingTop: 12, paddingBottom: 8 },
-  headRow: { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 6 },
-  head: { color: TEXT.tertiary, fontFamily: FONT.semibold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
-
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 64, borderRadius: 18 },
-  rowNow: { backgroundColor: 'rgba(255,255,255,0.16)' },
-  tile: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  card: { height: 108, borderRadius: 24, overflow: 'hidden', justifyContent: 'center' },
+  cardImage: { borderRadius: 24, width: '100%', height: '100%' },
+  cardRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 },
   nameCol: { flex: 1 },
-  name: { color: TEXT.primary, fontFamily: FONT.semibold, fontSize: 17 },
-  nowTag: { color: '#FFFFFF', fontFamily: FONT.medium, fontSize: 12, opacity: 0.75, marginTop: 1 },
-  timeCol: { width: 84, alignItems: 'flex-end', textAlign: 'right' },
-  time: { color: TEXT.primary, fontFamily: FONT.medium, fontSize: 16, fontVariant: ['tabular-nums'] },
-  ampm: { fontSize: 12, color: TEXT.secondary },
-  sep: { position: 'absolute', left: 62, right: 12, bottom: 0, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.16)' },
+  name: {
+    color: '#FFFFFF',
+    fontFamily: FONT.bold,
+    fontSize: 30,
+    letterSpacing: -0.6,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowRadius: 10,
+  },
+  nowChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: 6,
+    paddingHorizontal: 9,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  nowDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#7CFFB2' },
+  nowText: { color: '#FFFFFF', fontFamily: FONT.semibold, fontSize: 12, fontVariant: ['tabular-nums'] },
+  timesCol: { gap: 6, alignItems: 'flex-end' },
+  timeLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  timeLabel: { color: 'rgba(255,255,255,0.72)', fontFamily: FONT.semibold, fontSize: 10, letterSpacing: 1 },
+  cardTime: {
+    color: '#FFFFFF',
+    fontFamily: FONT.semibold,
+    fontSize: 19,
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowRadius: 8,
+  },
+  cardAmpm: { fontFamily: FONT.medium, fontSize: 12 },
+  track: { position: 'absolute', left: 20, right: 20, bottom: 10, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' },
+  fill: { height: 3, borderRadius: 2, backgroundColor: '#FFFFFF' },
+  nowRing: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: 24, borderWidth: 2, borderColor: 'rgba(255,255,255,0.85)' },
 
-  foot: { color: TEXT.tertiary, fontFamily: FONT.regular, fontSize: 12, textAlign: 'center', marginTop: 16, lineHeight: 18, paddingHorizontal: 12 },
+  foot: { fontFamily: FONT.regular, fontSize: 12, textAlign: 'center', marginTop: 18, lineHeight: 17, paddingHorizontal: 10 },
 });

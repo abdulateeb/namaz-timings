@@ -13,7 +13,7 @@
  */
 import { CalculationMethod, CalculationParameters, Coordinates, Madhab, PrayerTimes, Qibla } from 'adhan';
 
-export type PrayerKey = 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
+export type PrayerKey = 'tahajjud' | 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
 
 export interface PrayerSlot {
   key: PrayerKey;
@@ -33,6 +33,7 @@ export interface DayPlan {
 }
 
 const NAMES: Record<PrayerKey, string> = {
+  tahajjud: 'Tahajjud',
   fajr: 'Fajr',
   dhuhr: 'Zuhr',
   asr: 'Asr',
@@ -68,8 +69,13 @@ function addDays(d: Date, n: number) {
 function slotsFor(coords: Coordinates, day: Date, params: CalculationParameters): { slots: PrayerSlot[]; sunrise: Date } {
   const t = timesFor(coords, day, params);
   const tomorrow = timesFor(coords, addDays(day, 1), params);
+  const yesterday = timesFor(coords, addDays(day, -1), params);
   const halfNight = new Date(t.maghrib.getTime() + (tomorrow.fajr.getTime() - t.maghrib.getTime()) / 2);
+  // Tahajjud: the last third of the night before this day's Fajr (Bukhari 1145), until Fajr.
+  const night = t.fajr.getTime() - yesterday.maghrib.getTime();
+  const lastThird = new Date(t.fajr.getTime() - night / 3);
   const slots: PrayerSlot[] = [
+    { key: 'tahajjud', name: NAMES.tahajjud, start: lastThird, end: t.fajr },
     { key: 'fajr', name: NAMES.fajr, start: t.fajr, end: t.sunrise },
     { key: 'dhuhr', name: NAMES.dhuhr, start: t.dhuhr, end: t.asr },
     { key: 'asr', name: NAMES.asr, start: t.asr, end: t.maghrib },
@@ -92,7 +98,8 @@ export function planDay(lat: number, lon: number, now: Date): DayPlan {
   const within = (s: PrayerSlot) => t >= s.start.getTime() && t < s.end.getTime();
 
   // Before today's Fajr, the night still belongs to yesterday's Isha window.
-  const current = today.slots.find(within) ?? (within(yesterday.slots[4]) ? yesterday.slots[4] : null);
+  const yIsha = yesterday.slots[yesterday.slots.length - 1];
+  const current = today.slots.find(within) ?? (within(yIsha) ? yIsha : null);
   const next = today.slots.find((s) => s.start.getTime() > t) ?? tomorrow.slots[0];
 
   return { slots: today.slots, sunrise: today.sunrise, current, next, methodName: name };

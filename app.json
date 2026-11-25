@@ -1,4 +1,4 @@
-{
+﻿{
   "expo": {
     "name": "Namaz",
     "slug": "namaz",
@@ -31,6 +31,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withWindowsBuildFixes",
       "expo-font",
       [
         "expo-splash-screen",

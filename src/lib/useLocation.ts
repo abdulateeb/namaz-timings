@@ -5,7 +5,10 @@ import { Linking, Platform } from 'react-native';
 export interface Place {
   lat: number;
   lon: number;
-  label: string;
+  /** Area or street, e.g. "Moti Nagar". */
+  line1: string;
+  /** City, state, PIN and country, e.g. "Hyderabad, Telangana 500018, India". */
+  line2: string;
 }
 
 export type LocationState =
@@ -15,21 +18,39 @@ export type LocationState =
   | { status: 'ready'; place: Place };
 
 /** Browser preview has no phone GPS; it uses a fixed point in Hyderabad. */
-const PREVIEW_PLACE: Place = { lat: 17.454, lon: 78.4227, label: 'Moti Nagar, Hyderabad' };
+const PREVIEW_PLACE: Place = {
+  lat: 17.454,
+  lon: 78.4227,
+  line1: 'Moti Nagar',
+  line2: 'Hyderabad, Telangana 500018, India',
+};
 
-async function labelFor(lat: number, lon: number): Promise<string> {
+function coordText(lat: number, lon: number) {
+  return `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
+}
+
+function uniq(parts: (string | null | undefined)[]) {
+  const out: string[] = [];
+  for (const p of parts) if (p && !out.includes(p)) out.push(p);
+  return out;
+}
+
+async function placeFor(lat: number, lon: number): Promise<Place> {
   try {
     const [r] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
     if (r) {
-      const local = r.district || r.subregion || r.name;
-      const city = r.city || r.region;
-      const parts = [local, city].filter((p, i, a) => p && a.indexOf(p) === i);
-      if (parts.length) return parts.join(', ');
+      const street = r.street && !/\+/.test(r.street) ? r.street : null; // skip plus codes
+      const area = uniq([street, r.district || r.subregion || r.name]).join(', ');
+      const statePin = uniq([r.region, r.postalCode]).join(' ');
+      const line2 = uniq([r.city, statePin, r.country]).join(', ');
+      if (area || line2) {
+        return { lat, lon, line1: area || r.city || coordText(lat, lon), line2: line2 || coordText(lat, lon) };
+      }
     }
   } catch {
     // Geocoder unavailable offline; coordinates are shown instead.
   }
-  return `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
+  return { lat, lon, line1: 'Current location', line2: coordText(lat, lon) };
 }
 
 export function useDeviceLocation() {
@@ -48,12 +69,10 @@ export function useDeviceLocation() {
       // Last known fix first so the screen fills instantly, then refine.
       const last = await Location.getLastKnownPositionAsync();
       if (last) {
-        const { latitude, longitude } = last.coords;
-        setState({ status: 'ready', place: { lat: latitude, lon: longitude, label: await labelFor(latitude, longitude) } });
+        setState({ status: 'ready', place: await placeFor(last.coords.latitude, last.coords.longitude) });
       }
-      const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { latitude, longitude } = fresh.coords;
-      setState({ status: 'ready', place: { lat: latitude, lon: longitude, label: await labelFor(latitude, longitude) } });
+      const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setState({ status: 'ready', place: await placeFor(fresh.coords.latitude, fresh.coords.longitude) });
     } catch (e) {
       setState((s) => (s.status === 'ready' ? s : { status: 'error', message: e instanceof Error ? e.message : 'Location failed' }));
     }

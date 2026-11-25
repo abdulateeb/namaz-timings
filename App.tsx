@@ -1,31 +1,33 @@
-﻿import { Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
+import { Doto_700Bold } from '@expo-google-fonts/doto';
+import { Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
 import { BlurTargetView } from 'expo-blur';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from 'react-native-reanimated';
+import { ActivityIndicator, ImageBackground, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BlurTargetContext, Glass } from './src/components/Glass';
-import { PinIcon } from './src/components/Icons';
-import { Sky } from './src/components/Sky';
-import { TabToggle, type Tab } from './src/components/TabToggle';
-import { formatDate, formatHijri, planDay } from './src/lib/prayer';
+import { GlassTabBar, type Tab } from './src/components/GlassTabBar';
+import { ThemeButton } from './src/components/ThemeButton';
+import { planDay } from './src/lib/prayer';
 import { useDeviceLocation } from './src/lib/useLocation';
 import { useNow } from './src/lib/useNow';
 import { QiblaScreen } from './src/screens/QiblaScreen';
 import { TimesScreen } from './src/screens/TimesScreen';
-import { FONT, PALETTES, phaseFor, TEXT, type Phase } from './src/theme';
+import { FONT, THEMES, type Mode, type Theme } from './src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-function Message({ title, body, action, onAction }: { title: string; body: string; action?: string; onAction?: () => void }) {
+const GRID = require('./assets/bg-grid.png');
+
+function Message({ theme, title, body, action, onAction }: { theme: Theme; title: string; body: string; action?: string; onAction?: () => void }) {
   return (
     <View style={styles.centerFill}>
-      <Glass style={styles.msg}>
-        <Text style={styles.msgTitle}>{title}</Text>
-        <Text style={styles.msgBody}>{body}</Text>
+      <Glass variant={theme.glass} style={styles.msg}>
+        <Text style={[styles.msgTitle, { color: theme.text }]}>{title}</Text>
+        <Text style={[styles.msgBody, { color: theme.sub }]}>{body}</Text>
         {action && (
           <Pressable onPress={onAction} style={({ pressed }) => [styles.msgBtn, pressed && { opacity: 0.8 }]}>
             <Text style={styles.msgBtnText}>{action}</Text>
@@ -39,6 +41,9 @@ function Message({ title, body, action, onAction }: { title: string; body: strin
 function Main() {
   const insets = useSafeAreaInsets();
   const now = useNow();
+  const system = useColorScheme();
+  const [mode, setMode] = useState<Mode>(system === 'light' ? 'light' : 'dark');
+  const theme = THEMES[mode];
   const { state, retry, openSettings } = useDeviceLocation();
   const [tab, setTab] = useState<Tab>('times');
 
@@ -47,83 +52,79 @@ function Main() {
   // Recompute the day once a minute, not every second.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const plan = useMemo(() => (place ? planDay(place.lat, place.lon, now) : null), [place, minuteKey]);
-  // Browser preview only: ?phase=night|dawn|day|golden|dusk to inspect each sky.
-  const forced = Platform.OS === 'web' ? (new URLSearchParams(window.location.search).get('phase') as Phase | null) : null;
-  const phase = forced && forced in PALETTES ? forced : phaseFor(plan, now);
-  const hijri = useMemo(() => formatHijri(now), [Math.floor(minuteKey / 60)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const p = useSharedValue(0);
   useEffect(() => {
-    p.value = withTiming(tab === 'qibla' ? 1 : 0, { duration: 380, easing: Easing.out(Easing.cubic) });
+    p.value = withTiming(tab === 'qibla' ? 1 : 0, { duration: 420, easing: Easing.out(Easing.cubic) });
   }, [tab, p]);
-  const timesStyle = useAnimatedStyle(() => ({
-    opacity: 1 - p.value,
-    transform: [{ translateX: -24 * p.value }, { scale: 1 - 0.03 * p.value }],
-  }));
-  const qiblaStyle = useAnimatedStyle(() => ({
-    opacity: p.value,
-    transform: [{ translateX: 24 * (1 - p.value) }, { scale: 0.97 + 0.03 * p.value }],
-  }));
+  const timesStyle = useAnimatedStyle(() => ({ opacity: 1 - p.value, transform: [{ translateX: -28 * p.value }] }));
+  const qiblaStyle = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ translateX: 28 * (1 - p.value) }] }));
+  const gridStyle = useAnimatedStyle(() => ({ opacity: p.value }));
 
   const target = useRef<ComponentRef<typeof View>>(null);
+  const barBottom = insets.bottom + 14;
 
   return (
     <BlurTargetContext.Provider value={target}>
-      <View style={styles.root}>
+      <View style={[styles.root, { backgroundColor: theme.bg }]}>
+        <StatusBar style={tab === 'qibla' ? 'light' : theme.statusBar} />
+
+        {/* Everything the glass controls float over; Android blurs this view. */}
         <BlurTargetView ref={target} style={StyleSheet.absoluteFill}>
-          <Sky phase={phase} />
+          <Animated.View style={[StyleSheet.absoluteFill, gridStyle]} pointerEvents="none">
+            <ImageBackground source={GRID} style={StyleSheet.absoluteFill} resizeMode="cover">
+              {mode === 'dark' && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.38)' }]} />}
+            </ImageBackground>
+          </Animated.View>
+
+          {state.status === 'loading' && (
+            <View style={styles.centerFill}>
+              <ActivityIndicator color={theme.text} />
+            </View>
+          )}
+          {state.status === 'denied' && (
+            <Message
+              theme={theme}
+              title="Location is off"
+              body="Namaz needs your location to work out exact prayer times and the Qibla direction. It never leaves your phone."
+              action="Open settings"
+              onAction={openSettings}
+            />
+          )}
+          {state.status === 'error' && <Message theme={theme} title="Could not find you" body={state.message} action="Try again" onAction={retry} />}
+
+          {place && plan && (
+            <>
+              <Animated.View style={[StyleSheet.absoluteFill, timesStyle]} pointerEvents={tab === 'times' ? 'auto' : 'none'}>
+                <ScrollView
+                  contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: barBottom + 96 }}
+                  showsVerticalScrollIndicator={false}
+                >
+                  <TimesScreen plan={plan} now={now} place={place} theme={theme} />
+                </ScrollView>
+              </Animated.View>
+              <Animated.View
+                style={[StyleSheet.absoluteFill, { paddingTop: insets.top, paddingBottom: barBottom + 70 }, qiblaStyle]}
+                pointerEvents={tab === 'qibla' ? 'auto' : 'none'}
+              >
+                <QiblaScreen lat={place.lat} lon={place.lon} active={tab === 'qibla'} />
+              </Animated.View>
+            </>
+          )}
         </BlurTargetView>
 
-        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-          <View style={{ flex: 1 }}>
-            <Glass radius={18} style={styles.pill}>
-              <PinIcon size={14} />
-              <Text style={styles.pillText} numberOfLines={1}>
-                {place ? place.label : 'Locatingâ€¦'}
-              </Text>
-            </Glass>
-            <Text style={styles.date}>{formatDate(now)}</Text>
-            {hijri && <Text style={styles.hijri}>{hijri}</Text>}
-          </View>
-          <TabToggle tab={tab} onChange={setTab} />
+        <View style={[styles.themeBtn, { top: insets.top + 12 }]}>
+          <ThemeButton theme={theme} onToggle={() => setMode((m) => (m === 'dark' ? 'light' : 'dark'))} />
         </View>
 
-        {state.status === 'loading' && (
-          <View style={styles.centerFill}>
-            <ActivityIndicator color="#fff" />
-          </View>
-        )}
-        {state.status === 'denied' && (
-          <Message
-            title="Location is off"
-            body="Namaz needs your location to work out exact prayer times and the Qibla direction. It is never sent anywhere."
-            action="Open settings"
-            onAction={openSettings}
-          />
-        )}
-        {state.status === 'error' && (
-          <Message title="Could not find you" body={state.message} action="Try again" onAction={retry} />
-        )}
-
-        {place && plan && (
-          <View style={{ flex: 1 }}>
-            <Animated.View style={[StyleSheet.absoluteFill, timesStyle]} pointerEvents={tab === 'times' ? 'auto' : 'none'}>
-              <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
-                <TimesScreen plan={plan} now={now} />
-              </ScrollView>
-            </Animated.View>
-            <Animated.View style={[StyleSheet.absoluteFill, qiblaStyle]} pointerEvents={tab === 'qibla' ? 'auto' : 'none'}>
-              <QiblaScreen lat={place.lat} lon={place.lon} active={tab === 'qibla'} />
-            </Animated.View>
-          </View>
-        )}
+        <GlassTabBar tab={tab} onChange={setTab} theme={theme} bottom={barBottom} />
       </View>
     </BlurTargetContext.Provider>
   );
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({ Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold });
+  const [fontsLoaded] = useFonts({ Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Doto_700Bold });
 
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
@@ -133,7 +134,6 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
       <Main />
     </SafeAreaProvider>
   );
@@ -141,16 +141,12 @@ export default function App() {
 
 const styles = StyleSheet.create({
   // 'clip' on web: 'hidden' still lets focus and drags scroll the root sideways.
-  root: { flex: 1, backgroundColor: '#04060F', overflow: Platform.OS === 'web' ? ('clip' as 'hidden') : 'hidden' },
-  header: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, gap: 12 },
-  pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 7, paddingHorizontal: 13, height: 36, maxWidth: '100%' },
-  pillText: { color: TEXT.primary, fontFamily: FONT.semibold, fontSize: 14, flexShrink: 1 },
-  date: { color: TEXT.primary, fontFamily: FONT.semibold, fontSize: 13, marginTop: 9, marginLeft: 4 },
-  hijri: { color: TEXT.secondary, fontFamily: FONT.medium, fontSize: 12, marginTop: 2, marginLeft: 4 },
+  root: { flex: 1, overflow: Platform.OS === 'web' ? ('clip' as 'hidden') : 'hidden' },
+  themeBtn: { position: 'absolute', right: 16 },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   msg: { padding: 22, width: '100%', maxWidth: 360 },
-  msgTitle: { color: TEXT.primary, fontFamily: FONT.semibold, fontSize: 19 },
-  msgBody: { color: TEXT.secondary, fontFamily: FONT.regular, fontSize: 15, lineHeight: 21, marginTop: 8 },
-  msgBtn: { marginTop: 18, height: 46, borderRadius: 23, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  msgBtnText: { color: '#11131A', fontFamily: FONT.semibold, fontSize: 16 },
+  msgTitle: { fontFamily: FONT.semibold, fontSize: 19 },
+  msgBody: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 21, marginTop: 8 },
+  msgBtn: { marginTop: 18, height: 46, borderRadius: 23, backgroundColor: '#2F62CA', alignItems: 'center', justifyContent: 'center' },
+  msgBtnText: { color: '#FFFFFF', fontFamily: FONT.semibold, fontSize: 16 },
 });

@@ -1,10 +1,9 @@
-import { Doto_700Bold } from '@expo-google-fonts/doto';
 import { Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
 import { BlurTargetView } from 'expo-blur';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import { ActivityIndicator, ImageBackground, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,8 +18,6 @@ import { TimesScreen } from './src/screens/TimesScreen';
 import { FONT, THEMES, type Mode, type Theme } from './src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
-
-const GRID = require('./assets/bg-grid.png');
 
 function Message({ theme, title, body, action, onAction }: { theme: Theme; title: string; body: string; action?: string; onAction?: () => void }) {
   return (
@@ -59,7 +56,6 @@ function Main() {
   }, [tab, p]);
   const timesStyle = useAnimatedStyle(() => ({ opacity: 1 - p.value, transform: [{ translateX: -28 * p.value }] }));
   const qiblaStyle = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ translateX: 28 * (1 - p.value) }] }));
-  const gridStyle = useAnimatedStyle(() => ({ opacity: p.value }));
 
   const target = useRef<ComponentRef<typeof View>>(null);
   const bottomPad = insets.bottom + 24;
@@ -67,16 +63,10 @@ function Main() {
   return (
     <BlurTargetContext.Provider value={target}>
       <View style={[styles.root, { backgroundColor: theme.bg }]}>
-        <StatusBar style={tab === 'qibla' ? 'light' : theme.statusBar} />
+        <StatusBar style={theme.statusBar} />
 
         {/* Everything the glass controls float over; Android blurs this view. */}
         <BlurTargetView ref={target} style={StyleSheet.absoluteFill}>
-          <Animated.View style={[StyleSheet.absoluteFill, gridStyle]} pointerEvents="none">
-            <ImageBackground source={GRID} style={StyleSheet.absoluteFill} resizeMode="cover">
-              {mode === 'dark' && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.38)' }]} />}
-            </ImageBackground>
-          </Animated.View>
-
           {state.status === 'loading' && (
             <View style={styles.centerFill}>
               <ActivityIndicator color={theme.text} />
@@ -107,7 +97,7 @@ function Main() {
                 style={[StyleSheet.absoluteFill, { paddingTop: insets.top + 56, paddingBottom: bottomPad }, qiblaStyle]}
                 pointerEvents={tab === 'qibla' ? 'auto' : 'none'}
               >
-                <QiblaScreen lat={place.lat} lon={place.lon} active={tab === 'qibla'} />
+                <QiblaScreen lat={place.lat} lon={place.lon} active={tab === 'qibla'} theme={theme} />
               </Animated.View>
             </>
           )}
@@ -124,7 +114,7 @@ function Main() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({ Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Doto_700Bold });
+  const [fontsLoaded] = useFonts({ Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold });
 
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});

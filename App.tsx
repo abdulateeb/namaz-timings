@@ -61,21 +61,31 @@ function Main() {
     p.value = withTiming(tab === 'qibla' ? 1 : 0, { duration: 420, easing: Easing.out(Easing.cubic) });
   }, [tab, p]);
 
-  // Theme reveal: the new theme grows as a circle from the switch to the far corner.
+  // Theme reveal: the new sky grows as a circle from the switch to the far corner.
+  // Only the sky is revealed, inside a circle that is always mounted (radius 0 when
+  // idle). Nothing is created at tap time, so there is no first-frame flash; the
+  // cards and text sit above the sky and simply take the new colours at the end.
   const { width: W, height: H } = useWindowDimensions();
   const [next, setNext] = useState<Mode | null>(null);
   const reveal = useSharedValue(0);
-  const scrollY = useRef(0);
   const cx = W - 16 - THEME_BTN / 2;
   const cy = insets.top + 12 + THEME_BTN / 2;
   const R = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 4;
 
-  // Switch the base layer first, and only drop the reveal copy two frames later,
-  // once the base has redrawn in the new theme. Removing both in one frame flickered.
-  const finish = useCallback((to: Mode, forPeriod: string) => {
-    setManual({ mode: to, period: forPeriod });
-    requestAnimationFrame(() => requestAnimationFrame(() => setNext(null)));
-  }, []);
+  // Base sky switches first; the circle collapses two frames later, after the
+  // base has drawn the new sky underneath it.
+  const finish = useCallback(
+    (to: Mode, forPeriod: string) => {
+      setManual({ mode: to, period: forPeriod });
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          reveal.value = 0;
+          setNext(null);
+        }),
+      );
+    },
+    [reveal],
+  );
 
   const toggleTheme = useCallback(() => {
     if (next) return;
@@ -97,32 +107,31 @@ function Main() {
     return { left: -(cx - r), top: -(cy - r) };
   });
 
-  const layer = (m: Mode, isReveal: boolean) => (
-    <Layer
-      mode={m}
-      tab={tab}
-      onTab={setTab}
-      onToggleTheme={toggleTheme}
-      p={p}
-      state={state}
-      plan={plan}
-      now={now}
-      retry={retry}
-      openSettings={openSettings}
-      scrollY={scrollY}
-      isReveal={isReveal}
-    />
+  const revealSky = (
+    <Animated.View pointerEvents="none" style={[styles.revealMask, circle]}>
+      <Animated.View style={[{ position: 'absolute', width: W, height: H }, inner]}>
+        <Image source={SKY_NIGHT} style={[styles.sky, { opacity: next === 'dark' ? 1 : 0 }]} resizeMode="cover" fadeDuration={0} />
+        <Image source={SKY_MORNING} style={[styles.sky, { opacity: next === 'light' ? 1 : 0 }]} resizeMode="cover" fadeDuration={0} />
+      </Animated.View>
+    </Animated.View>
   );
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
-      {layer(mode, false)}
-      {next && (
-        <Animated.View pointerEvents="none" style={[styles.revealMask, circle]}>
-          <Animated.View style={[{ position: 'absolute', width: W, height: H }, inner]}>{layer(next, true)}</Animated.View>
-        </Animated.View>
-      )}
+      <Layer
+        mode={mode}
+        tab={tab}
+        onTab={setTab}
+        onToggleTheme={toggleTheme}
+        p={p}
+        state={state}
+        plan={plan}
+        now={now}
+        retry={retry}
+        openSettings={openSettings}
+        revealSky={revealSky}
+      />
     </View>
   );
 }
@@ -149,13 +158,12 @@ interface LayerProps {
   now: Date;
   retry: () => void;
   openSettings: () => void;
-  scrollY: React.MutableRefObject<number>;
-  /** The copy drawn inside the reveal circle: starts at the same scroll position. */
-  isReveal: boolean;
+  /** The growing circle of the next theme's sky, drawn just above the base sky. */
+  revealSky: React.ReactNode;
 }
 
-/** One complete screen in one theme. The theme reveal draws a second copy. */
-function Layer({ mode, tab, onTab, onToggleTheme, p, state, plan, now, retry, openSettings, scrollY, isReveal }: LayerProps) {
+/** The whole screen in one theme. */
+function Layer({ mode, tab, onTab, onToggleTheme, p, state, plan, now, retry, openSettings, revealSky }: LayerProps) {
   const insets = useSafeAreaInsets();
   const theme = THEMES[mode];
   const place = state.status === 'ready' ? state.place : null;
@@ -178,6 +186,7 @@ function Layer({ mode, tab, onTab, onToggleTheme, p, state, plan, now, retry, op
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             <Image source={SKY_NIGHT} style={[styles.sky, { opacity: mode === 'dark' ? 1 : 0 }]} resizeMode="cover" fadeDuration={0} />
             <Image source={SKY_MORNING} style={[styles.sky, { opacity: mode === 'dark' ? 0 : 1 }]} resizeMode="cover" fadeDuration={0} />
+            {revealSky}
           </View>
 
           {state.status === 'loading' && (
@@ -202,9 +211,6 @@ function Layer({ mode, tab, onTab, onToggleTheme, p, state, plan, now, retry, op
                 <ScrollView
                   contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: bottomPad }}
                   showsVerticalScrollIndicator={false}
-                  contentOffset={isReveal ? { x: 0, y: scrollY.current } : undefined}
-                  onScroll={isReveal ? undefined : (e) => (scrollY.current = e.nativeEvent.contentOffset.y)}
-                  scrollEventThrottle={32}
                 >
                   <TimesScreen plan={plan} now={now} place={place} theme={theme} />
                 </ScrollView>

@@ -1,13 +1,13 @@
-"""Generate the Namaz app icon set: "Morning Sky" (chosen 25 Nov 2026, replacing Dawn).
+"""Generate the Namaz app icon set: "Night Sky" (chosen 25 Nov 2026, replacing Morning).
 
-A fresh morning: clear blue sky, white cumulus, green hills and a mosque on the
-horizon, a warm sun above, film grain.
+A starry night: deep indigo sky, faint moonlit clouds, dark hills and a mosque on
+the horizon, a glowing crescent above, film grain.
 
 Writes into ./assets:
   icon.png                     full icon (store, iOS, legacy Android)
-  android-icon-background.png  scene without the sun (adaptive layer)
-  android-icon-foreground.png  sun only, inside the adaptive safe zone
-  android-icon-monochrome.png  sun + mosque silhouette (themed icons)
+  android-icon-background.png  scene without the crescent (adaptive layer)
+  android-icon-foreground.png  crescent only, inside the adaptive safe zone
+  android-icon-monochrome.png  crescent + mosque silhouette (themed icons)
   splash-icon.png              rounded icon for the splash screen
   favicon.png                  48 px web icon
 
@@ -25,16 +25,18 @@ import make_card_skies as cs  # noqa: E402
 
 S = 1024
 OUT = cs.OUT
-SEED = 102  # same seed family as the Zuhr card
+SEED = 105  # same seed family as the Isha card
 
 
 def scene():
     cs.W = cs.H = S  # render the card sky square
-    spec = dict(cs.SKIES["dhuhr"])
-    spec["stops"] = ["#1A64BC", "#4C9BE0", "#BFE0F4"]
-    spec["land"] = "#1E4D2B"
+    spec = dict(cs.SKIES["isha"])
+    spec["stops"] = ["#050817", "#121A48", "#3A3576"]
+    spec["land"] = "#04050C"
     img = cs.gradient(spec["stops"])
-    img = cs.glow_at(img, "#FFF3D6", 0.36, 0.33, 0.45, 3.0)  # warm light around the sun
+    img = cs.stars(img, 260, SEED)
+    img = cs.glow_at(img, "#8FA2FF", 0.41, 0.34, 0.35, 3.2)  # moonlight halo
+    img = cs.glow_at(img, "#6A5AA8", 0.5, 0.95, 0.4, 2.4)  # last light on the horizon
     img = cs.clouds(img, spec, SEED)
     img = cs.skyline(img, spec["land"], SEED, mx_f=0.5, base_f=0.77, dw_f=0.105, hill_f=0.8)
     # Mosque alone (hills pushed off-canvas) for the monochrome icon.
@@ -73,10 +75,10 @@ def sun_mask(cx, cy, r):
 def crescent_layer(cm):
     """Glowing body for the sky light (used for the sun)."""
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    glow = Image.new("RGBA", (S, S), (255, 236, 190, 0))
+    glow = Image.new("RGBA", (S, S), (255, 232, 190, 0))
     glow.putalpha(cm.filter(ImageFilter.GaussianBlur(40)).point(lambda v: int(v * 0.9)))
     layer = Image.alpha_composite(layer, glow)
-    body = Image.new("RGBA", (S, S), (255, 250, 232, 0))
+    body = Image.new("RGBA", (S, S), (255, 244, 218, 0))
     body.putalpha(cm)
     return Image.alpha_composite(layer, body)
 
@@ -97,7 +99,7 @@ def save(img, name, size=S):
 def main():
     arr, sky_mask = scene()
     bg = to_img(add_grain(arr))
-    cm = sun_mask(S * 0.36, S * 0.33, S * 0.075)
+    cm = crescent_mask(S * 0.41, S * 0.34, S * 0.09)
     moon = crescent_layer(cm)
     full = Image.alpha_composite(bg, moon)
 
@@ -105,7 +107,7 @@ def main():
     save(bg, "android-icon-background.png")
     save(moon, "android-icon-foreground.png")
 
-    # Monochrome: sun plus the mosque, cut at the horizon, as one white silhouette.
+    # Monochrome: crescent plus the mosque, cut at the horizon, as one white silhouette.
     mono_mask = ImageChops.lighter(cm, sky_mask.point(lambda v: 255 if v > 127 else 0))
     ImageDraw.Draw(mono_mask).rectangle([0, int(S * 0.79), S, S], fill=0)
     mono = Image.new("RGBA", (S, S), (255, 255, 255, 0))

@@ -62,7 +62,7 @@ function Main() {
   const gridStyle = useAnimatedStyle(() => ({ opacity: p.value }));
 
   const target = useRef<ComponentRef<typeof View>>(null);
-  const barBottom = insets.bottom + 14;
+  const bottomPad = insets.bottom + 24;
 
   return (
     <BlurTargetContext.Provider value={target}>
@@ -97,14 +97,14 @@ function Main() {
             <>
               <Animated.View style={[StyleSheet.absoluteFill, timesStyle]} pointerEvents={tab === 'times' ? 'auto' : 'none'}>
                 <ScrollView
-                  contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: barBottom + 96 }}
+                  contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: bottomPad }}
                   showsVerticalScrollIndicator={false}
                 >
                   <TimesScreen plan={plan} now={now} place={place} theme={theme} />
                 </ScrollView>
               </Animated.View>
               <Animated.View
-                style={[StyleSheet.absoluteFill, { paddingTop: insets.top, paddingBottom: barBottom + 70 }, qiblaStyle]}
+                style={[StyleSheet.absoluteFill, { paddingTop: insets.top + 56, paddingBottom: bottomPad }, qiblaStyle]}
                 pointerEvents={tab === 'qibla' ? 'auto' : 'none'}
               >
                 <QiblaScreen lat={place.lat} lon={place.lon} active={tab === 'qibla'} />
@@ -113,11 +113,11 @@ function Main() {
           )}
         </BlurTargetView>
 
-        <View style={[styles.themeBtn, { top: insets.top + 12 }]}>
+        {/* Header controls, top right: screen switch, then theme switch. */}
+        <View style={[styles.headerBtns, { top: insets.top + 12 }]}>
+          <GlassTabBar tab={tab} onChange={setTab} theme={theme} />
           <ThemeButton theme={theme} onToggle={() => setMode((m) => (m === 'dark' ? 'light' : 'dark'))} />
         </View>
-
-        <GlassTabBar tab={tab} onChange={setTab} theme={theme} bottom={barBottom} />
       </View>
     </BlurTargetContext.Provider>
   );
@@ -142,7 +142,7 @@ export default function App() {
 const styles = StyleSheet.create({
   // 'clip' on web: 'hidden' still lets focus and drags scroll the root sideways.
   root: { flex: 1, overflow: Platform.OS === 'web' ? ('clip' as 'hidden') : 'hidden' },
-  themeBtn: { position: 'absolute', right: 16 },
+  headerBtns: { position: 'absolute', right: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   msg: { padding: 22, width: '100%', maxWidth: 360 },
   msgTitle: { fontFamily: FONT.semibold, fontSize: 19 },

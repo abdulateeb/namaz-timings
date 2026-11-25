@@ -117,17 +117,17 @@ def clouds(img, spec, seed):
     return img
 
 
-def skyline(img, land, seed):
-    """Rolling hills plus a small mosque silhouette on the right."""
+def skyline(img, land, seed, mx_f=0.56, base_f=0.86, dw_f=0.12, hill_f=0.9, return_mask=False):
+    """Rolling hills plus a small mosque silhouette (defaults: card layout)."""
     rng = np.random.default_rng(seed)
     mask = Image.new("L", (W, H), 0)
     d = ImageDraw.Draw(mask)
     xs = np.arange(W)
-    hills = H * (0.9 - 0.05 * np.sin(xs / W * 5 + rng.random() * 6) - 0.03 * np.sin(xs / W * 13 + rng.random() * 6))
+    hills = H * (hill_f - 0.05 * np.sin(xs / W * 5 + rng.random() * 6) - 0.03 * np.sin(xs / W * 13 + rng.random() * 6))
     d.polygon([(0, H)] + [(int(x), float(y)) for x, y in zip(xs[::4], hills[::4])] + [(W, H)], fill=255)
     # Mosque: dome, drum, two minarets with small domes.
-    mx, base = W * 0.56, H * 0.86
-    dw = H * 0.12
+    mx, base = W * mx_f, H * base_f
+    dw = H * dw_f
     d.rectangle([mx - dw * 1.2, base - dw * 0.55, mx + dw * 1.2, H], fill=255)
     d.ellipse([mx - dw * 0.75, base - dw * 1.45, mx + dw * 0.75, base - dw * 0.05], fill=255)
     d.line([(mx, base - dw * 1.45), (mx, base - dw * 1.75)], fill=255, width=3)
@@ -137,7 +137,8 @@ def skyline(img, land, seed):
         d.ellipse([x - dw * 0.15, base - dw * 2.35, x + dw * 0.15, base - dw * 2.05], fill=255)
         d.line([(x, base - dw * 2.35), (x, base - dw * 2.55)], fill=255, width=2)
     m = np.asarray(mask.filter(ImageFilter.GaussianBlur(0.8)), dtype=float)[..., None] / 255
-    return img * (1 - m) + col(land) * m
+    out = img * (1 - m) + col(land) * m
+    return (out, mask) if return_mask else out
 
 
 def render(key, spec, seed):

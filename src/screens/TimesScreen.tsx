@@ -95,7 +95,7 @@ export function TimesScreen({ plan, now, place, theme }: { plan: DayPlan; now: D
       <View style={styles.infoBlock}>
         <View style={styles.infoRow}>
           <Text style={[styles.infoLabel, { color: theme.sub }]}>Current Time</Text>
-          <LiveClock style={[styles.infoClock, { color: theme.text }]} msStyle={{ color: theme.sub }} />
+          <LiveClock style={[styles.infoClock, { color: theme.text }]} />
         </View>
         <View style={styles.infoRow}>
           <Text style={[styles.infoLabel, { color: theme.sub }]}>Gregorian Date</Text>
@@ -122,7 +122,7 @@ export function TimesScreen({ plan, now, place, theme }: { plan: DayPlan; now: D
 
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 16 },
-  address: { paddingRight: 64 },
+  address: { paddingRight: 158 },
   addrTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   addr1: { fontFamily: FONT.bold, fontSize: 22, letterSpacing: -0.3, flexShrink: 1 },
   addr2: { fontFamily: FONT.medium, fontSize: 14, marginTop: 4, lineHeight: 19 },

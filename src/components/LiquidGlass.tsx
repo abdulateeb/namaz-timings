@@ -56,12 +56,16 @@ export function LiquidGlass({ children, style, radius, dark, lens = false }: Pro
 
   const tint = lens ? (dark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.55)') : dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.18)';
 
+  // Every layer carries the same rounded clip: on Android a rectangular child
+  // (the blur especially) can otherwise paint past the parent's curve.
+  const round = { borderRadius: radius, overflow: 'hidden' as const };
+
   return (
-    <View onLayout={onLayout} style={[{ borderRadius: radius, overflow: 'hidden' }, style]}>
-      <View style={[StyleSheet.absoluteFill, { zIndex: -1 }]} pointerEvents="none">
+    <View onLayout={onLayout} style={[round, style]}>
+      <View style={[StyleSheet.absoluteFill, round, { zIndex: -1 }]} pointerEvents="none">
         {!lens && (
           <BlurView
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, round]}
             intensity={dark ? 32 : 40}
             tint="default"
             blurTarget={target ?? undefined}
@@ -69,18 +73,18 @@ export function LiquidGlass({ children, style, radius, dark, lens = false }: Pro
             blurReductionFactor={2.5}
           />
         )}
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: tint }]} />
+        <View style={[StyleSheet.absoluteFill, round, { backgroundColor: tint }]} />
         {/* Inner top glow. */}
         <LinearGradient
           colors={[dark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.65)', 'rgba(255,255,255,0)']}
           locations={[0, 0.55]}
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, round]}
         />
         {/* Bottom caustic. */}
         <LinearGradient
           colors={['rgba(255,255,255,0)', dark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.35)']}
           locations={[0.7, 1]}
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, round]}
         />
         <Rim w={size.w} h={size.h} r={radius} dark={dark} lens={lens} />
       </View>

@@ -1,6 +1,6 @@
 /**
- * "hh:mm:ss:ms AM/PM", ticking every animation frame. Lives in its own
- * component so the fast updates never re-render the prayer cards.
+ * "hh:mm:ss AM/PM", updated on each whole second. Lives in its own component
+ * so the ticking never re-renders the prayer cards.
  */
 import { useEffect, useState } from 'react';
 import { Text, type StyleProp, type TextStyle } from 'react-native';
@@ -8,30 +8,19 @@ import { Text, type StyleProp, type TextStyle } from 'react-native';
 function format(d: Date) {
   const h = d.getHours();
   const p2 = (n: number) => String(n).padStart(2, '0');
-  const hh = p2(h % 12 === 0 ? 12 : h % 12);
-  return {
-    main: `${hh}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`,
-    ms: String(d.getMilliseconds()).padStart(3, '0'),
-    ampm: h < 12 ? 'AM' : 'PM',
-  };
+  return `${p2(h % 12 === 0 ? 12 : h % 12)}:${p2(d.getMinutes())}:${p2(d.getSeconds())} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
-export function LiveClock({ style, msStyle }: { style?: StyleProp<TextStyle>; msStyle?: StyleProp<TextStyle> }) {
+export function LiveClock({ style }: { style?: StyleProp<TextStyle> }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    let id = 0;
-    const loop = () => {
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
       setNow(new Date());
-      id = requestAnimationFrame(loop);
+      timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 5);
     };
-    id = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(id);
+    timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 5);
+    return () => clearTimeout(timer);
   }, []);
-  const t = format(now);
-  return (
-    <Text style={style}>
-      {t.main}
-      <Text style={msStyle}>:{t.ms}</Text> {t.ampm}
-    </Text>
-  );
+  return <Text style={style}>{format(now)}</Text>;
 }

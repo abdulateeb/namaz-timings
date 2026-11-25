@@ -1,25 +1,45 @@
 {
   "expo": {
-    "name": "namaz",
+    "name": "Namaz",
     "slug": "namaz",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#04060F",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ateeb.namaz",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Namaz uses your location to calculate exact prayer times and the Qibla direction."
+      }
     },
     "android": {
+      "package": "com.ateeb.namaz",
+      "versionCode": 2,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0A0F24",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "VIBRATE"],
+      "blockedPermissions": ["ACCESS_BACKGROUND_LOCATION"],
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-splash-screen",
+        { "image": "./assets/splash-icon.png", "imageWidth": 150, "resizeMode": "contain", "backgroundColor": "#04060F" }
+      ],
+      [
+        "expo-location",
+        { "locationWhenInUsePermission": "Namaz uses your location to calculate exact prayer times and the Qibla direction." }
+      ]
+    ]
   }
 }

@@ -3,7 +3,7 @@ import { BlurTargetView } from 'expo-blur';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,8 +42,11 @@ function Message({ theme, title, body, action, onAction }: { theme: Theme; title
 function Main() {
   const insets = useSafeAreaInsets();
   const now = useNow();
-  const system = useColorScheme();
-  const [mode, setMode] = useState<Mode>(system === 'light' ? 'light' : 'dark');
+  // Theme follows the clock: night (dark) 6 PM to 6 AM, morning (light) 6 AM to 6 PM.
+  // A manual flip holds only until the next 6 o'clock change.
+  const period = periodOf(now);
+  const [manual, setManual] = useState<{ mode: Mode; period: string } | null>(null);
+  const mode: Mode = manual && manual.period === period ? manual.mode : period.endsWith('n') ? 'dark' : 'light';
   const { state, retry, openSettings } = useDeviceLocation();
   const [tab, setTab] = useState<Tab>('times');
 
@@ -67,20 +70,23 @@ function Main() {
   const cy = insets.top + 12 + THEME_BTN / 2;
   const R = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 4;
 
-  const finish = useCallback((to: Mode) => {
-    setMode(to);
-    setNext(null);
+  // Switch the base layer first, and only drop the reveal copy two frames later,
+  // once the base has redrawn in the new theme. Removing both in one frame flickered.
+  const finish = useCallback((to: Mode, forPeriod: string) => {
+    setManual({ mode: to, period: forPeriod });
+    requestAnimationFrame(() => requestAnimationFrame(() => setNext(null)));
   }, []);
 
   const toggleTheme = useCallback(() => {
     if (next) return;
     const to: Mode = mode === 'dark' ? 'light' : 'dark';
+    const forPeriod = period;
     setNext(to);
     reveal.value = 0;
     reveal.value = withTiming(1, { duration: 700, easing: Easing.inOut(Easing.cubic) }, (done) => {
-      if (done) scheduleOnRN(finish, to);
+      if (done) scheduleOnRN(finish, to, forPeriod);
     });
-  }, [mode, next, reveal, finish]);
+  }, [mode, next, period, reveal, finish]);
 
   const circle = useAnimatedStyle(() => {
     const r = R * reveal.value;
@@ -123,6 +129,15 @@ function Main() {
 
 const THEME_BTN = 42;
 
+/** '2026-11-25n' for the night that starts 25 Nov 6 PM, '2026-11-25d' for that day's 6 AM to 6 PM. */
+function periodOf(d: Date): string {
+  const h = d.getHours();
+  const day = new Date(d);
+  if (h < 6) day.setDate(day.getDate() - 1); // before 6 AM still belongs to last night
+  const key = `${day.getFullYear()}-${day.getMonth() + 1}-${day.getDate()}`;
+  return h >= 6 && h < 18 ? `${key}d` : `${key}n`;
+}
+
 interface LayerProps {
   mode: Mode;
   tab: Tab;
@@ -157,9 +172,12 @@ function Layer({ mode, tab, onTab, onToggleTheme, p, state, plan, now, retry, op
 
         {/* Everything the glass controls float over; Android blurs this view. */}
         <BlurTargetView ref={target} style={StyleSheet.absoluteFill}>
-          {/* Sky behind both screens: night in dark theme, fresh morning with trees in light. */}
+          {/* Sky behind both screens: starry night in dark theme, fresh morning in light.
+              Both stay loaded and only their opacity changes, so a theme switch never
+              reloads an image (a reload paints one blank frame: the flicker). */}
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Image source={mode === 'dark' ? SKY_NIGHT : SKY_MORNING} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} resizeMode="cover" />
+            <Image source={SKY_NIGHT} style={[styles.sky, { opacity: mode === 'dark' ? 1 : 0 }]} resizeMode="cover" fadeDuration={0} />
+            <Image source={SKY_MORNING} style={[styles.sky, { opacity: mode === 'dark' ? 0 : 1 }]} resizeMode="cover" fadeDuration={0} />
           </View>
 
           {state.status === 'loading' && (
@@ -232,6 +250,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, overflow: Platform.OS === 'web' ? ('clip' as 'hidden') : 'hidden' },
   headerBtns: { position: 'absolute', right: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
   revealMask: { position: 'absolute', overflow: 'hidden' },
+  sky: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   msg: { padding: 22, width: '100%', maxWidth: 360 },
   msgTitle: { fontFamily: FONT.semibold, fontSize: 19 },
